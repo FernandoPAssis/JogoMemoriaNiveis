@@ -45,17 +45,18 @@
 
         .grid {
             display: grid;
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 20px;
             justify-content: center;
+            max-width: 95vw; /* Garante que cabe em qualquer tela */
         }
 
         .card {
-            width: 65px;
-            height: 65px;
+            width: clamp(45px, 15vw, 65px); /* Redimensiona dinamicamente */
+            height: clamp(45px, 15vw, 65px);
             background-color: #007bff;
             color: white;
-            font-size: 28px;
+            font-size: clamp(20px, 6vw, 28px); /* Redimensiona o emoji */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -63,6 +64,7 @@
             cursor: pointer;
             user-select: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            touch-action: manipulation; /* Desativa zoom duplo no clique das cartas */
         }
 
         .timer {
@@ -167,11 +169,13 @@
     </div>
 
     <script>
-        // Banco com 25 emojis únicos para suportar o nível complexo
+        // Banco com 25 emojis ultra-compatíveis com sistemas antigos (Unicode <= 6.0)
         const emojisBase = [
-            "🐶", "🐱", "🐭", "🐻", "🐼", "🐨", "🐸", "🐮", "🦁", "🐟",
-            "🦊", "🐰", "🐯", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉",
-            "🐝", "🦨", "🐴", "👑", "🚀"
+            "🐶", "🐱", "🐭", "🐹", "🐰",
+            "🐻", "🐼", "🐯", "🐮", "🐷",
+            "🐸", "🐵", "🐔", "🐧", "🐦",
+            "🐤", "🐺", "🐴", "🐍", "🐢",
+            "🐟", "🐠", "🐙", "👑", "⭐"
         ];
 
         let selectedPairs = 8;
@@ -309,8 +313,7 @@
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
 
-            // Ajusta o número de colunas dinamicamente no CSS do Grid
-            grid.style.gridTemplateColumns = `repeat(${selectedColumns}, 65px)`;
+            grid.style.gridTemplateColumns = `repeat(${selectedColumns}, 1fr)`;
 
             // Seleciona a quantidade exata de emojis necessária para os pares escolhidos
             let currentEmojis = emojisBase.slice(0, selectedPairs);
