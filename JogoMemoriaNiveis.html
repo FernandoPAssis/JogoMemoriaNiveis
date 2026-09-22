@@ -23,25 +23,35 @@
             margin-bottom: 15px;
         }
 
-        .sound-btn {
+        .sound-btn, .menu-top-btn {
             background: none;
             border: 2px solid #007bff;
-            border-radius: 50%;
-            width: 42px;
+            border-radius: 8px;
             height: 42px;
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
             outline: none;
+            padding: 0 12px;
+            color: #007bff;
+            font-weight: bold;
         }
 
-        .sound-btn:hover {
-            background-color: #007bff;
-            transform: scale(1.05);
+        .sound-btn {
+            border-radius: 50%;
+            width: 42px;
+            padding: 0;
+            font-size: 20px;
         }
+
+            .sound-btn:hover, .menu-top-btn:hover {
+                background-color: #007bff;
+                color: white;
+                transform: scale(1.05);
+            }
 
         .grid {
             display: grid;
@@ -84,16 +94,16 @@
             outline: none;
         }
 
-        .btn:hover {
-            background-color: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
-        }
+            .btn:hover {
+                background-color: #218838;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+            }
 
-        .btn:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
+            .btn:active {
+                transform: translateY(1px);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
 
         /* Tela Inicial */
         .start-screen {
@@ -103,11 +113,11 @@
             gap: 15px;
         }
 
-        .start-screen h1 {
-            margin: 0;
-            color: #333;
-            font-size: 28px;
-        }
+            .start-screen h1 {
+                margin: 0;
+                color: #333;
+                font-size: 28px;
+            }
 
         .difficulty-options {
             display: flex;
@@ -120,9 +130,9 @@
             background-color: #007bff;
         }
 
-        .btn-diff:hover {
-            background-color: #0056b3;
-        }
+            .btn-diff:hover {
+                background-color: #0056b3;
+            }
 
         /* Tela do Jogo */
         .game-screen {
@@ -142,24 +152,24 @@
             <button class="btn btn-diff" onclick="startGame(8, 4)">Fácil (8 pares)</button>
             <button class="btn btn-diff" onclick="startGame(12, 4)">Médio (12 pares)</button>
             <button class="btn btn-diff" onclick="startGame(20, 5)">Difícil (20 pares)</button>
-            <button class="btn btn-diff" onclick="startGame(25, 5)">Expert (25 pares)</button>
+            <button class="btn btn-diff" onclick="startGame(25, 5)">Complexo (25 pares)</button>
         </div>
     </div>
 
     <!-- Tela do Jogo -->
     <div class="game-screen" id="gameScreen">
         <div class="header-controls">
+            <button class="menu-top-btn" onclick="confirmReturnToMenu()" title="Voltar ao Menu">🏠 Menu</button>
             <div class="timer" id="timer">0.0s</div>
             <button class="sound-btn" id="soundBtn" onclick="toggleSound()" title="Ativar/Desativar Som">🔊</button>
         </div>
 
         <div class="grid" id="grid"></div>
 
-        <button class="btn" id="restartBtn" style="display: none; margin-top: 15px;" onclick="returnToMenu()">Menu Principal 🏠</button>
+        <button class="btn" id="restartBtn" style="display: none; margin-top: 15px;" onclick="returnToMenu()">Jogar Novamente 🔄</button>
     </div>
 
     <script>
-        // Banco com 25 emojis únicos para suportar o nível complexo
         const emojisBase = [
             "🐶", "🐱", "🐭", "🐻", "🐼", "🐨", "🐸", "🐮", "🦁", "🐟",
             "🦊", "🐰", "🐯", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉",
@@ -173,6 +183,7 @@
         let matchesFound = 0;
         let tenthsElapsed = 0;
         let timerInterval = null;
+        let gameFinished = false;
 
         let audioCtx = null;
         let soundEnabled = true;
@@ -264,31 +275,27 @@
                     osc.stop(now + note.time + note.duration);
                 } catch (e) { }
             });
-
-            [659.25, 783.99].forEach(freq => {
-                try {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, now + 0.60);
-                    gain.gain.setValueAtTime(0.15, now + 0.60);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.60 + 0.70);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start(now + 0.60);
-                    osc.stop(now + 0.60 + 0.70);
-                } catch (e) { }
-            });
         }
 
         function startGame(pairs, columns) {
             initAudio();
             selectedPairs = pairs;
             selectedColumns = columns;
+            gameFinished = false;
 
             document.getElementById('startScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'flex';
             setupGame();
+        }
+
+        function confirmReturnToMenu() {
+            if (gameFinished || matchesFound === 0) {
+                returnToMenu();
+            } else {
+                if (confirm("Deseja interromper a partida e voltar ao menu principal?")) {
+                    returnToMenu();
+                }
+            }
         }
 
         function returnToMenu() {
@@ -303,10 +310,8 @@
             grid.innerHTML = '';
             restartBtn.style.display = 'none';
 
-            // Ajusta o número de colunas dinamicamente no CSS do Grid
             grid.style.gridTemplateColumns = `repeat(${selectedColumns}, 65px)`;
 
-            // Seleciona a quantidade exata de emojis necessária para os pares escolhidos
             let currentEmojis = emojisBase.slice(0, selectedPairs);
             let deck = [...currentEmojis, ...currentEmojis].sort(() => Math.random() - 0.5);
 
@@ -348,6 +353,7 @@
                 firstCard = null;
 
                 if (matchesFound === selectedPairs) {
+                    gameFinished = true;
                     clearInterval(timerInterval);
                     playVictorySound();
                     document.getElementById('restartBtn').style.display = 'block';
