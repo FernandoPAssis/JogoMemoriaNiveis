@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jogo da Memória</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .sound-btn {
+            background: none;
+            border: 2px solid #007bff;
+            border-radius: 50%;
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .sound-btn:hover {
+            background-color: #007bff;
+            transform: scale(1.05);
+        }
+
+        .grid {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .card {
+            width: 65px;
+            height: 65px;
+            background-color: #007bff;
+            color: white;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #28a745;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease-in-out;
+            outline: none;
+        }
+
+        .btn:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Tela Inicial */
+        .start-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .start-screen h1 {
+            margin: 0;
+            color: #333;
+            font-size: 28px;
+        }
+
+        .difficulty-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 220px;
+        }
+
+        .btn-diff {
+            background-color: #007bff;
+        }
+
+        .btn-diff:hover {
+            background-color: #0056b3;
+        }
+
+        /* Tela do Jogo */
+        .game-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Tela Inicial com Escolha de Dificuldade -->
+    <div class="start-screen" id="startScreen">
+        <h1>Jogo da Memória 🧠</h1>
+        <p style="margin: 0; color: #666; font-weight: bold;">Escolha a Dificuldade:</p>
+        <div class="difficulty-options">
+            <button class="btn btn-diff" onclick="startGame(8, 4)">Fácil (8 pares)</button>
+            <button class="btn btn-diff" onclick="startGame(12, 4)">Médio (12 pares)</button>
+            <button class="btn btn-diff" onclick="startGame(20, 5)">Difícil (20 pares)</button>
+            <button class="btn btn-diff" onclick="startGame(25, 5)">Expert (25 pares)</button>
+        </div>
+    </div>
+
+    <!-- Tela do Jogo -->
+    <div class="game-screen" id="gameScreen">
+        <div class="header-controls">
+            <div class="timer" id="timer">0.0s</div>
+            <button class="sound-btn" id="soundBtn" onclick="toggleSound()" title="Ativar/Desativar Som">🔊</button>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <button class="btn" id="restartBtn" style="display: none; margin-top: 15px;" onclick="returnToMenu()">Menu Principal 🏠</button>
+    </div>
+
+    <script>
+        // Banco com 25 emojis únicos para suportar o nível complexo
+        const emojisBase = [
+            "🐶", "🐱", "🐭", "🐻", "🐼", "🐨", "🐸", "🐮", "🦁", "🐟",
+            "🦊", "🐰", "🐯", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉",
+            "🐝", "🦄", "🐴", "👑", "🚀"
+        ];
+
+        let selectedPairs = 8;
+        let selectedColumns = 4;
+        let firstCard = null;
+        let lockBoard = false;
+        let matchesFound = 0;
+        let tenthsElapsed = 0;
+        let timerInterval = null;
+
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleSound() {
+            initAudio();
+            soundEnabled = !soundEnabled;
+            const soundBtn = document.getElementById('soundBtn');
+            soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+        }
+
+        function playClickSound() {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(450, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch (e) { }
+        }
+
+        function playMatchSound() {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                const osc1 = audioCtx.createOscillator();
+                const gain1 = audioCtx.createGain();
+                osc1.type = 'triangle';
+                osc1.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                gain1.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc1.connect(gain1);
+                gain1.connect(audioCtx.destination);
+                osc1.start();
+                osc1.stop(audioCtx.currentTime + 0.15);
+
+                setTimeout(() => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'triangle';
+                    osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime);
+                    gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.start();
+                    osc2.stop(audioCtx.currentTime + 0.25);
+                }, 100);
+            } catch (e) { }
+        }
+
+        function playVictorySound() {
+            if (!soundEnabled || !audioCtx) return;
+            const now = audioCtx.currentTime;
+            const melody = [
+                { freq: 523.25, time: 0.00, duration: 0.09, type: 'triangle' },
+                { freq: 523.25, time: 0.10, duration: 0.09, type: 'triangle' },
+                { freq: 523.25, time: 0.20, duration: 0.09, type: 'triangle' },
+                { freq: 659.25, time: 0.32, duration: 0.12, type: 'triangle' },
+                { freq: 783.99, time: 0.46, duration: 0.12, type: 'triangle' },
+                { freq: 1046.50, time: 0.60, duration: 0.70, type: 'triangle' }
+            ];
+
+            melody.forEach(note => {
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = note.type;
+                    osc.frequency.setValueAtTime(note.freq, now + note.time);
+                    gain.gain.setValueAtTime(0.2, now + note.time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + note.time + note.duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + note.time);
+                    osc.stop(now + note.time + note.duration);
+                } catch (e) { }
+            });
+
+            [659.25, 783.99].forEach(freq => {
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + 0.60);
+                    gain.gain.setValueAtTime(0.15, now + 0.60);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.60 + 0.70);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + 0.60);
+                    osc.stop(now + 0.60 + 0.70);
+                } catch (e) { }
+            });
+        }
+
+        function startGame(pairs, columns) {
+            initAudio();
+            selectedPairs = pairs;
+            selectedColumns = columns;
+
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'flex';
+            setupGame();
+        }
+
+        function returnToMenu() {
+            clearInterval(timerInterval);
+            document.getElementById('gameScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+        }
+
+        function setupGame() {
+            const grid = document.getElementById('grid');
+            const restartBtn = document.getElementById('restartBtn');
+            grid.innerHTML = '';
+            restartBtn.style.display = 'none';
+
+            // Ajusta o número de colunas dinamicamente no CSS do Grid
+            grid.style.gridTemplateColumns = `repeat(${selectedColumns}, 65px)`;
+
+            // Seleciona a quantidade exata de emojis necessária para os pares escolhidos
+            let currentEmojis = emojisBase.slice(0, selectedPairs);
+            let deck = [...currentEmojis, ...currentEmojis].sort(() => Math.random() - 0.5);
+
+            matchesFound = 0;
+            firstCard = null;
+            lockBoard = false;
+
+            deck.forEach((emoji) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.emoji = emoji;
+                card.textContent = '❓';
+                card.addEventListener('click', flipCard);
+                grid.appendChild(card);
+            });
+
+            clearInterval(timerInterval);
+            tenthsElapsed = 0;
+            document.getElementById('timer').textContent = "0.0s";
+            timerInterval = setInterval(() => {
+                tenthsElapsed++;
+                document.getElementById('timer').textContent = (tenthsElapsed / 10).toFixed(1) + "s";
+            }, 100);
+        }
+
+        function flipCard() {
+            if (lockBoard || this === firstCard || this.textContent !== '❓') return;
+
+            playClickSound();
+            this.textContent = this.dataset.emoji;
+
+            if (!firstCard) {
+                firstCard = this;
+                return;
+            }
+
+            if (firstCard.dataset.emoji === this.dataset.emoji) {
+                matchesFound++;
+                firstCard = null;
+
+                if (matchesFound === selectedPairs) {
+                    clearInterval(timerInterval);
+                    playVictorySound();
+                    document.getElementById('restartBtn').style.display = 'block';
+                } else {
+                    playMatchSound();
+                }
+            } else {
+                lockBoard = true;
+                setTimeout(() => {
+                    firstCard.textContent = '❓';
+                    this.textContent = '❓';
+                    firstCard = null;
+                    lockBoard = false;
+                }, 800);
+            }
+        }
+    </script>
+</body>
+</html>
